@@ -1,0 +1,4 @@
+.venv
+cleaned json
+.env
+*.pyc
