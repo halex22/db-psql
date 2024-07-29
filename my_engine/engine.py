@@ -17,9 +17,4 @@ engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@localhost:543
 Session = sessionmaker(bind=engine)
 session = Session()
 
-
-if __name__ == '__main__':
-
-    result = session.execute(text('SELECT * FROM person'))
-    for row in result:
-        print(row)
+__all__ = ['session']
