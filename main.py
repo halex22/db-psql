@@ -1,4 +1,3 @@
-
 from sqlalchemy import text
 
 from my_engine import session
