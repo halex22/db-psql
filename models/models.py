@@ -1,19 +1,18 @@
 
 from typing import Annotated, List, Optional
 
-from sqlalchemy import BigInteger, ForeignKey, Integer, Numeric, String
+from sqlalchemy import (BigInteger, Boolean, Column, ForeignKey, Integer,
+                        Numeric, String, Table, Text)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 id = Annotated[int, mapped_column(
     BigInteger, primary_key=True, autoincrement=True)]
+sm_str = Annotated[str, mapped_column(String(20), nullable=False)]
 numeric = Annotated[float, mapped_column(Numeric(4, 1), nullable=False)]
+numeric_null = Annotated[float, mapped_column(Numeric(4, 1))]
 stat = Annotated[int, mapped_column(Integer, nullable=False)]
-# _type = Annotated['Types',  relationship('Types', back_populates='pokemons')]
-type_fk = Annotated[BigInteger, mapped_column(ForeignKey('Types.id'))]
-# _ability = Annotated[Optional['Ability'], relationship('Ability', back_populates='pokemons')]
-ability_fk = Annotated[BigInteger, mapped_column(ForeignKey('Ability.id'))]
-_type = Annotated['Types', 'Mapped[Types]']
-_ability = Annotated['Ability', 'Mapped[Ability]']
+type_fk = Annotated[BigInteger, mapped_column(ForeignKey('types.id'))]
+ability_fk = Annotated[BigInteger, mapped_column(ForeignKey('abilities.id'))]
 
 
 class Base(DeclarativeBase):
@@ -24,20 +23,37 @@ class Base(DeclarativeBase):
         return f'{self.__class__.__name__}: {self.name}'
 
 
+breeding_egg_group = Table(
+    'breeding_egg_group', Base.metadata,
+    Column('breeding_id', BigInteger, ForeignKey(
+        'breeding.id'), primary_key=True),
+    Column('egg_group_id', BigInteger, ForeignKey(
+        'egg_group.id'), primary_key=True)
+)
+
+types_poke_group = Table(
+    'types_poke_group', Base.metadata,
+    Column('types_id', BigInteger, ForeignKey('types.id'), primary_key=True),
+    Column('pokemons_id', BigInteger, ForeignKey('pokemons.id'), primary_key=True)
+)
+
+
 class Types(Base):
     __tablename__ = 'types'
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     pokemons: Mapped[List['Pokemons']] = relationship(
-        'Pokemons', foreign_keys='Pokemons.main_type_id', back_populates='main_type')
+        'Pokemons', foreign_keys='pokemons.main_type_id', back_populates='main_type')
     pokemons_second: Mapped[List['Pokemons']] = relationship(
-        'Pokemons', foreign_keys='Pokemons.second_type_id', back_populates='second_type')
+        'Pokemons', foreign_keys='pokemons.second_type_id', back_populates='second_type')
 
 
 class Ability(Base):
     __tablename__ = 'abilities'
-    name: Mapped[str] = mapped_column(String(50))
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
     pokemons: Mapped[List['Pokemons']] = relationship(
-        'Pokemons', foreign_keys='Pokemons.ability_id', back_populates='ability')
+        'Pokemons', foreign_keys='pokemons.ability_id', back_populates='ability')
+    pokemons_hidden: Mapped[List['Pokemons']] = relationship(
+        'Pokemons', foreign_keys='pokemons.hidden_ability_id', back_populates='hidden_ability')
 
 
 class Pokemons(Base):
@@ -49,20 +65,92 @@ class Pokemons(Base):
     weight: Mapped[numeric]
     species: Mapped[str] = mapped_column(String(70), nullable=False)
     main_type_id: Mapped[type_fk]
-    main_type: Mapped[_type] = relationship('Types', back_populates='pokemons')
+    main_type: Mapped['Types'] = relationship(
+        'types', back_populates='pokemons')
     second_type_id: Mapped[type_fk]
-    second_type: Mapped[_type] = relationship('Types', back_populates='pokemons')
+    second_type: Mapped['Types'] = relationship(
+        'types', back_populates='pokemons')
     ability_id: Mapped[ability_fk]
-    ability: Mapped[_ability] = relationship('Ability', back_populates='pokemons')
+    ability: Mapped['Ability'] = relationship(
+        'abilities', back_populates='pokemons')
     hidden_ability_id: Mapped[Optional[ability_fk]]
-    hidden_ability: Mapped[_ability] = relationship('Ability', back_populates='pokemons')
+    hidden_ability: Mapped['Ability'] = relationship(
+        'abilities', back_populates='pokemons')
+    stats: Mapped['BaseStats'] = relationship(
+        'stats', back_populates='pokemons')
+    training: Mapped['Training'] = relationship(
+        'training', back_populates='pokemons')
 
 
 class BaseStats(Base):
     __tablename__ = 'stats'
+    pokemon_id: Mapped[BigInteger] = mapped_column(ForeignKey('pokemons.id'))
+    pokemon: Mapped['Pokemons'] = relationship(
+        'Pokemons', foreign_keys='pokemons.id', back_populates='stats')
     hp: Mapped[stat]
     attack: Mapped[stat]
     defense: Mapped[stat]
     sp_atk: Mapped[stat]
     sp_def: Mapped[stat]
     speed: Mapped[stat]
+
+
+class Training(Base):
+    __tablename__ = 'training'
+    pokemon_id: Mapped[BigInteger] = mapped_column(ForeignKey('pokemons.id'))
+    pokemon: Mapped['Pokemons'] = relationship(
+        'Pokemons', foreign_keys='pokemons.id', back_populates='stats')
+    base_exp: Mapped[Integer] = mapped_column(Integer, nullable=False)
+    cath_rate: Mapped[numeric]
+    friend_cat_id: Mapped[BigInteger] = mapped_column(
+        ForeignKey('friendship_category.id'))
+    friend_cat: Mapped['CategoryFriendship'] = relationship(
+        'friendship_category', back_populates='pokemons.training')
+    growth_rate_id: Mapped[BigInteger] = mapped_column(
+        ForeignKey('growth_rate_category.id'))
+    growth_rate: Mapped['GrowthRate'] = relationship(
+        'growth_rate_category', back_populates='pokemons.training')
+
+
+class CategoryFriendship(Base):
+    __tablename__ = 'friendship_category'
+    name: Mapped[sm_str]
+
+
+class GrowthRate(Base):
+    __tablename__ = 'growth_rate_category'
+    name: Mapped[sm_str]
+
+
+class PokemonGame(Base):
+    __tablename__ = 'pokemon_game'
+    name: Mapped[sm_str]
+
+
+class PokedexEntry(Base):
+    __tablename__ = 'pokedex_entries'
+    pokemon_id: Mapped[BigInteger] = mapped_column(ForeignKey('pokemons.id'))
+    pokemon_game_id: Mapped[BigInteger] = mapped_column(
+        ForeignKey('pokemon_game.id'))
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class Breeding(Base):
+    __tablename__ = 'breeding'
+    pokemon_id: Mapped[BigInteger] = mapped_column(ForeignKey('pokemons.id'))
+    egg_groups: Mapped[List['EggGroup']] = relationship(
+        'EggGroup', back_populates='breeding', secondary=breeding_egg_group)
+    genderless: Mapped[bool] = mapped_column(Boolean, default=False)
+    male: Mapped[Optional[numeric_null]]
+    female: Mapped[Optional[numeric_null]]
+
+
+class EggGroup(Base):
+    __tablename__ = 'egg_group'
+    name: Mapped[sm_str]
+    breeding: Mapped[List['Breeding']] = relationship(
+        'Breeding', secondary=breeding_egg_group, back_populates='egg_group')
+    
+
+# class PokemonType(Base):
+
