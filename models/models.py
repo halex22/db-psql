@@ -33,8 +33,17 @@ breeding_egg_group = Table(
 
 types_poke_group = Table(
     'types_poke_group', Base.metadata,
-    Column('types_id', BigInteger, ForeignKey('types.id'), primary_key=True),
-    Column('pokemons_id', BigInteger, ForeignKey('pokemons.id'), primary_key=True)
+    Column('id', BigInteger, primary_key=True, index=True, autoincrement=True),
+    Column('type_id', BigInteger, ForeignKey('types.id'), primary_key=True, index=True),
+    Column('pokemon_id', BigInteger, ForeignKey('pokemons.id'), primary_key=True, index=True)
+)
+
+
+abilities_poke_group = Table(
+    'abilities_poke_group', Base.metadata,
+    Column('id', BigInteger, primary_key=True, index=True, autoincrement=True),
+    Column('ability_id', BigInteger, ForeignKey('abilities.id'), primary_key=True, index=True),
+    Column('pokemon_id', BigInteger, ForeignKey('pokemons.id'), primary_key=True, index=True)
 )
 
 
@@ -42,16 +51,15 @@ class Types(Base):
     __tablename__ = 'types'
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     pokemons: Mapped[List['Pokemons']] = relationship(
-        'Pokemons', foreign_keys='pokemons.main_type_id', back_populates='main_type')
-    pokemons_second: Mapped[List['Pokemons']] = relationship(
-        'Pokemons', foreign_keys='pokemons.second_type_id', back_populates='second_type')
+        'Types', back_populates='types', secondary=types_poke_group)
 
 
 class Ability(Base):
     __tablename__ = 'abilities'
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     pokemons: Mapped[List['Pokemons']] = relationship(
-        'Pokemons', foreign_keys='pokemons.ability_id', back_populates='ability')
+        'Ability', secondary=abilities_poke_group, back_populates='abilities'
+    )
     pokemons_hidden: Mapped[List['Pokemons']] = relationship(
         'Pokemons', foreign_keys='pokemons.hidden_ability_id', back_populates='hidden_ability')
 
@@ -64,15 +72,9 @@ class Pokemons(Base):
     height: Mapped[numeric]
     weight: Mapped[numeric]
     species: Mapped[str] = mapped_column(String(70), nullable=False)
-    main_type_id: Mapped[type_fk]
-    main_type: Mapped['Types'] = relationship(
-        'types', back_populates='pokemons')
-    second_type_id: Mapped[type_fk]
-    second_type: Mapped['Types'] = relationship(
-        'types', back_populates='pokemons')
-    ability_id: Mapped[ability_fk]
-    ability: Mapped['Ability'] = relationship(
-        'abilities', back_populates='pokemons')
+    abilities: Mapped[List['Ability']] = relationship(
+        'Pokemons', secondary=abilities_poke_group, back_populates='pokemons'
+    )
     hidden_ability_id: Mapped[Optional[ability_fk]]
     hidden_ability: Mapped['Ability'] = relationship(
         'abilities', back_populates='pokemons')
@@ -83,7 +85,7 @@ class Pokemons(Base):
 
 
 class BaseStats(Base):
-    __tablename__ = 'stats'
+    __tablename__ = 'base_stats'
     pokemon_id: Mapped[BigInteger] = mapped_column(ForeignKey('pokemons.id'))
     pokemon: Mapped['Pokemons'] = relationship(
         'Pokemons', foreign_keys='pokemons.id', back_populates='stats')
@@ -96,7 +98,7 @@ class BaseStats(Base):
 
 
 class Training(Base):
-    __tablename__ = 'training'
+    __tablename__ = 'training_stats'
     pokemon_id: Mapped[BigInteger] = mapped_column(ForeignKey('pokemons.id'))
     pokemon: Mapped['Pokemons'] = relationship(
         'Pokemons', foreign_keys='pokemons.id', back_populates='stats')
@@ -113,17 +115,17 @@ class Training(Base):
 
 
 class CategoryFriendship(Base):
-    __tablename__ = 'friendship_category'
+    __tablename__ = 'friendship_categories'
     name: Mapped[sm_str]
 
 
 class GrowthRate(Base):
-    __tablename__ = 'growth_rate_category'
+    __tablename__ = 'growth_rate_categories'
     name: Mapped[sm_str]
 
 
 class PokemonGame(Base):
-    __tablename__ = 'pokemon_game'
+    __tablename__ = 'pokemon_games'
     name: Mapped[sm_str]
 
 
@@ -136,7 +138,7 @@ class PokedexEntry(Base):
 
 
 class Breeding(Base):
-    __tablename__ = 'breeding'
+    __tablename__ = 'breeding_stats'
     pokemon_id: Mapped[BigInteger] = mapped_column(ForeignKey('pokemons.id'))
     egg_groups: Mapped[List['EggGroup']] = relationship(
         'EggGroup', back_populates='breeding', secondary=breeding_egg_group)
@@ -146,7 +148,7 @@ class Breeding(Base):
 
 
 class EggGroup(Base):
-    __tablename__ = 'egg_group'
+    __tablename__ = 'egg_groups'
     name: Mapped[sm_str]
     breeding: Mapped[List['Breeding']] = relationship(
         'Breeding', secondary=breeding_egg_group, back_populates='egg_group')
