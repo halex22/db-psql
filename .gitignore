@@ -2,3 +2,4 @@
 cleaned json
 .env
 *.pyc
+*.json
